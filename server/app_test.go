@@ -62,6 +62,30 @@ func TestStorePersists(t *testing.T) {
 	}
 }
 
+func TestSetPasswordUpdatesVerifier(t *testing.T) {
+	path := t.TempDir() + "/server.json"
+	store, err := OpenStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SetPassword("demo", "new-password"); err != nil {
+		t.Fatal(err)
+	}
+	if !checkPassword("new-password", store.data.Users[0].PasswordHash, store.data.Users[0].PasswordSalt) {
+		t.Fatal("new password does not verify")
+	}
+	if checkPassword("demo", store.data.Users[0].PasswordHash, store.data.Users[0].PasswordSalt) {
+		t.Fatal("old password still verifies")
+	}
+	reloaded, err := OpenStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !checkPassword("new-password", reloaded.data.Users[0].PasswordHash, reloaded.data.Users[0].PasswordSalt) {
+		t.Fatal("persisted password does not verify")
+	}
+}
+
 func TestAuthorizedNetworksProduceSeparateCoreConfigs(t *testing.T) {
 	state := defaultState()
 	state.Networks["finance"] = Network{

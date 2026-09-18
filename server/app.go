@@ -338,6 +338,30 @@ func (s *Store) persistLocked() error {
 	return nil
 }
 
+// SetPassword changes a local account verifier without ever persisting the
+// clear-text password.
+func (s *Store) SetPassword(username, password string) error {
+	if strings.TrimSpace(username) == "" || password == "" {
+		return errors.New("username and password are required")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.data.Users {
+		if s.data.Users[i].Username != username {
+			continue
+		}
+		salt := randomToken()
+		if len(salt) > 32 {
+			salt = salt[:32]
+		}
+		s.data.Users[i].PasswordSalt = salt
+		s.data.Users[i].PasswordHash = hashPassword(password, salt)
+		s.data.Users[i].Revision++
+		return s.persistLocked()
+	}
+	return fmt.Errorf("user %q not found", username)
+}
+
 func (s *Store) normalizeDevicesLocked() {
 	users := make(map[string]User, len(s.data.Users))
 	for _, user := range s.data.Users {

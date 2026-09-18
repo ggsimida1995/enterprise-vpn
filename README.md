@@ -8,7 +8,19 @@
 go run ./server -addr :8080 -config ./server.json
 ```
 
-首次启动会创建一个用于本地验收的账号：`demo` / `demo`。当前阶段只支持服务端本地账号密码登录；生产环境请修改服务端状态文件中的用户密码哈希和网络数据。
+服务端源代码在 `server/`，首次启动会在 `-config` 指定的位置创建配置文件。可以先复制仓库中的 `server.example.json`：
+
+```sh
+cp server.example.json server.json
+```
+
+模板账号是 `demo` / `demo`。修改密码时不要手工填写哈希，直接执行：
+
+```sh
+go run ./server -config ./server.json -set-password demo
+```
+
+该命令隐藏输入密码并只保存哈希。账号的 `network_ids`、网络的 `secret`、`subnets`、`proxy_networks` 和 `gateway_device_ids` 都在 `server.json` 中配置；修改后客户端下一次心跳会自动获取新配置。
 
 服务端是 HTTP API，可直接放在 HTTPS 反向代理后。也可以使用仓库自带的容器部署：
 
@@ -23,12 +35,14 @@ docker run -d --name enterprise-vpn-server \
 
 ## 启动客户端
 
-运行客户端即可，默认会打开本机登录页，用户只输入账号和密码。登录页只监听 `127.0.0.1`，不会提供任何 EasyTier 参数。无桌面环境可显式使用命令行登录。客户端会优先使用 `VPN_CORE_PATH` 指定的 Core，其次查找安装包同目录的 `easytier-core`，最后回退到 `PATH`：
+运行客户端即可，默认会打开本机登录页，用户只输入账号和密码。登录页只监听 `127.0.0.1`，不会提供任何 EasyTier 参数。无桌面环境可显式使用命令行登录。`easytier-core` 地址不是服务端配置：它必须存在于运行客户端或 Gateway 的机器上。客户端会优先使用 `VPN_CORE_PATH`，其次查找安装包同目录的 Core，最后回退到 `PATH`：
 
 ```sh
 go run ./client -server http://127.0.0.1:8080
 # 无桌面环境
 go run ./client -ui cli -server http://127.0.0.1:8080
+# 手工指定 Core 路径
+go run ./client -core /opt/easytier-core -server http://127.0.0.1:8080
 ```
 
 客户端首次运行会生成并持久化 Device ID，登录后把服务端返回的临时 TOML 交给 `easytier-core`。客户端每 15 秒发送心跳并检查 Core 生命周期：配置 revision 变化或 Core 异常退出时自动刷新/重启；临时服务端网络故障会继续重试，会话失效时自动停止 Core；退出登录或进程收到终止信号时也会停止 Core。

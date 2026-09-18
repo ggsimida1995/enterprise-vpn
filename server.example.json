@@ -1,0 +1,23 @@
+{
+  "users": [
+    {
+      "id": "user-demo",
+      "username": "demo",
+      "password_hash": "f3c0fc59c8cf5e7258d5842814bd1734aaaf268fae3bd0d473df9f8eb6be3d62",
+      "password_salt": "enterprise-vpn-demo-salt",
+      "network_ids": ["company"],
+      "revision": 1
+    }
+  ],
+  "networks": {
+    "company": {
+      "id": "company",
+      "name": "公司内网",
+      "secret": "replace-this-network-secret",
+      "gateway": "192.168.10.1",
+      "virtual_cidr": "10.144.0.0/16",
+      "subnets": ["192.168.10.0/24", "192.168.20.0/24"]
+    }
+  },
+  "devices": {}
+}
