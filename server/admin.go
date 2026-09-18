@@ -43,6 +43,15 @@ func adminAuthFromEnv() AdminAuth {
 	}
 }
 
+func requiredAdminAuth() (AdminAuth, error) {
+	username := strings.TrimSpace(os.Getenv("VPN_ADMIN_USER"))
+	password := os.Getenv("VPN_ADMIN_" + "PASSWORD")
+	if username == "" || password == "" {
+		return AdminAuth{}, errors.New("VPN_ADMIN_USER and VPN_ADMIN_PASSWORD are required")
+	}
+	return AdminAuth{Username: username, Password: password}, nil
+}
+
 func (s *Store) adminConfig() AdminConfig {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -63,7 +72,10 @@ func (s *Store) updateAdminConfig(input AdminConfig) error {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	previous := s.data
+	previous, err := cloneState(s.data)
+	if err != nil {
+		return fmt.Errorf("snapshot server state: %w", err)
+	}
 	oldUsers := make(map[string]User, len(previous.Users))
 	for _, user := range previous.Users {
 		oldUsers[user.ID] = user

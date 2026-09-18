@@ -3,9 +3,9 @@ FROM golang:1.22 AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
-COPY server ./server
+COPY . .
 RUN mkdir -p /out /data \
-    && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /out/enterprise-vpn-server ./server \
+    && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /out/enterprise-vpn-server . \
     && chown 65532:65532 /data \
     && touch /data/.keep
 

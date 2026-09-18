@@ -136,6 +136,19 @@ func TestAdminConfigRequiresAuthAndPreservesSessions(t *testing.T) {
 	}
 }
 
+func TestRequiredAdminAuth(t *testing.T) {
+	t.Setenv("VPN_ADMIN_USER", "operator")
+	t.Setenv("VPN_ADMIN_PASSWORD", "secret")
+	auth, err := requiredAdminAuth()
+	if err != nil || auth.Username != "operator" || auth.Password != "secret" {
+		t.Fatalf("required admin auth = %+v, %v", auth, err)
+	}
+	t.Setenv("VPN_ADMIN_PASSWORD", "")
+	if _, err := requiredAdminAuth(); err == nil {
+		t.Fatal("missing password should fail")
+	}
+}
+
 func TestSetPasswordUpdatesVerifier(t *testing.T) {
 	path := t.TempDir() + "/server.json"
 	store, err := OpenStore(path)

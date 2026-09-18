@@ -1,5 +1,7 @@
 /dist/
-/server.json
+/client/dist/
+/client/cores/
+/server/server.json
 /.DS_Store
 /.codegraph/
 /EasyTier-main/

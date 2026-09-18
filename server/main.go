@@ -35,8 +35,12 @@ func main() {
 		fmt.Printf("password updated for %s in %s\n", *setPassword, *config)
 		return
 	}
+	auth, err := requiredAdminAuth()
+	if err != nil {
+		log.Fatal(err)
+	}
 	log.Printf("enterprise VPN server listening on %s", *addr)
-	if err := http.ListenAndServe(*addr, NewHandler(store)); err != nil {
+	if err := http.ListenAndServe(*addr, NewHandlerWithAdmin(store, auth)); err != nil {
 		log.Fatal(err)
 	}
 }

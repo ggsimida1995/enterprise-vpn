@@ -92,13 +92,17 @@ var httpClient = &http.Client{Timeout: 15 * time.Second}
 
 var version = "dev"
 
+// defaultServerURL is set at packaging time. End users only log in; they do
+// not choose or edit the control server.
+var defaultServerURL = "http://127.0.0.1:8080"
+
 var coreCommandArgs = func(file string) []string {
 	return []string{"--config-file", file}
 }
 
 func main() {
 	config := Config{}
-	flag.StringVar(&config.ServerURL, "server", envOr("VPN_SERVER_URL", "http://127.0.0.1:8080"), "enterprise VPN server URL")
+	flag.StringVar(&config.ServerURL, "server", envOr("VPN_SERVER_URL", defaultServerURL), "enterprise VPN server URL")
 	flag.StringVar(&config.CorePath, "core", defaultCorePath(), "internal EasyTier core executable")
 	flag.StringVar(&config.StatePath, "state", defaultStatePath(), "private client state path")
 	flag.StringVar(&config.UI, "ui", envOr("VPN_UI", "browser"), "login interface: browser or cli")

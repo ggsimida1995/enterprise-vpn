@@ -1,4 +1,4 @@
-module enterprise-vpn
+module enterprise-vpn-server
 
 go 1.22
 

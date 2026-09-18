@@ -20,27 +20,29 @@ jobs:
             arch: amd64
           - os: windows
             arch: amd64
-          - os: linux
-            arch: amd64
-          - os: linux
-            arch: arm64
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: client/go.mod
+      - name: Download EasyTier Core
+        env:
+          EASYTIER_VERSION: ${{ vars.EASYTIER_VERSION || 'v2.6.4' }}
+        working-directory: client
+        run: ./scripts/fetch-easytier-core.sh
       - name: Build client
         env:
           TARGETS: ${{ matrix.os }}/${{ matrix.arch }}
           VERSION: ${{ github.ref_name }}
-        run: |
-          mkdir -p dist
-          OUT_DIR=dist ./scripts/package-client.sh
+          SERVER_URL: ${{ vars.VPN_SERVER_URL }}
+          EASYTIER_CORE_DIR: cores
+        working-directory: client
+        run: OUT_DIR=dist ./scripts/package-client.sh
       - uses: actions/upload-artifact@v4
         with:
           name: enterprise-vpn-client-${{ matrix.os }}-${{ matrix.arch }}
-          path: dist/*.tar.gz
+          path: client/dist/*.tar.gz
 
   release:
     if: startsWith(github.ref, 'refs/tags/')
