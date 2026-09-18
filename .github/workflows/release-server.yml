@@ -1,0 +1,55 @@
+name: release-server
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "server-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+          - os: linux
+            arch: arm64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+      - name: Build server package
+        env:
+          TARGETS: ${{ matrix.os }}/${{ matrix.arch }}
+          VERSION: ${{ github.ref_name }}
+        working-directory: server
+        run: OUT_DIR=dist ./scripts/package-server.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: enterprise-vpn-server-${{ matrix.os }}-${{ matrix.arch }}
+          path: server/dist/*.tar.gz
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/server-v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: enterprise-vpn-server-*
+          path: dist
+          merge-multiple: true
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" dist/*.tar.gz --clobber

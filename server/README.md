@@ -20,6 +20,26 @@ go run . -addr :8080 -config ./server.json
 go run . -config ./server.json -set-password demo
 ```
 
+## 服务端发布包
+
+服务端只发布 Linux 包，先发布服务端并部署，再打客户端：
+
+```sh
+cd server
+VERSION=server-v0.1.0 ./scripts/package-server.sh
+```
+
+在服务器上解压对应架构的包后执行：
+
+```sh
+cp server.example.json server.json
+export VPN_ADMIN_USER=admin
+read -rs VPN_ADMIN_PASSWORD; export VPN_ADMIN_PASSWORD
+./run-server.sh
+```
+
+`server-v*` 标签会触发独立的服务端 GitHub Release。`linux-amd64` 适用于大多数 x86 云服务器；ARM 服务器使用 `linux-arm64`。
+
 ## Docker 部署
 
 ```sh
