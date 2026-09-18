@@ -1,0 +1,8 @@
+.codegraph
+.git
+.DS_Store
+dist
+EasyTier-main
+client
+server.json
+*.log
