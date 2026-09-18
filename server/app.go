@@ -427,6 +427,10 @@ func (s *Store) reloadIfChangedLocked() error {
 }
 
 func NewHandler(store *Store) http.Handler {
+	return NewHandlerWithAdmin(store, adminAuthFromEnv())
+}
+
+func NewHandlerWithAdmin(store *Store, auth AdminAuth) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -434,6 +438,9 @@ func NewHandler(store *Store) http.Handler {
 	mux.HandleFunc("POST /api/client/login", store.handleClientAuth)
 	mux.HandleFunc("POST /api/client/heartbeat", store.handleHeartbeat)
 	mux.HandleFunc("POST /api/client/logout", store.handleLogout)
+	admin := adminRoutes(store, auth)
+	mux.Handle("/admin", admin)
+	mux.Handle("/api/admin/", admin)
 	return withJSONLimit(mux)
 }
 

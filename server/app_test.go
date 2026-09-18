@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -59,6 +62,77 @@ func TestStorePersists(t *testing.T) {
 	}
 	if _, err := OpenStore(path); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestAdminConfigRequiresAuthAndPreservesSessions(t *testing.T) {
+	path := t.TempDir() + "/server.json"
+	store, err := OpenStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := NewHandlerWithAdmin(store, AdminAuth{Username: "operator", Password: "secret"})
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	response, err := http.Get(server.URL + "/admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated admin status = %d", response.StatusCode)
+	}
+	_ = response.Body.Close()
+
+	request, _ := http.NewRequest(http.MethodGet, server.URL+"/api/admin/config", nil)
+	request.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("operator:secret")))
+	response, err = http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config AdminConfig
+	if err := json.NewDecoder(response.Body).Decode(&config); err != nil {
+		t.Fatal(err)
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusOK || len(config.Users) != 1 || config.Users[0].Password != "" {
+		t.Fatalf("admin config = %+v, status = %d", config, response.StatusCode)
+	}
+	request, _ = http.NewRequest(http.MethodGet, server.URL+"/admin", nil)
+	request.SetBasicAuth("operator", "secret")
+	response, err = http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, _ := io.ReadAll(response.Body)
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusOK || !bytes.Contains(page, []byte("企业内网服务端配置")) {
+		t.Fatalf("admin page status/body = %d/%q", response.StatusCode, page)
+	}
+
+	config.Users[0].Password = "changed"
+	config.Networks["company"] = Network{
+		ID: "company", Name: "公司内网", Secret: "managed-secret", Gateway: "192.168.10.1",
+		VirtualCIDR: "10.144.0.0/16", Subnets: []string{"192.168.10.0/24"},
+		PeerNodes: []string{"tcp://10.0.0.1:11010"},
+	}
+	payload, _ := json.Marshal(config)
+	request, _ = http.NewRequest(http.MethodPut, server.URL+"/api/admin/config", bytes.NewReader(payload))
+	request.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("operator:secret")))
+	request.Header.Set("Content-Type", "application/json")
+	response, err = http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("admin save status = %d", response.StatusCode)
+	}
+	if !checkPassword("changed", store.data.Users[0].PasswordHash, store.data.Users[0].PasswordSalt) {
+		t.Fatal("admin password was not updated")
+	}
+	if store.data.Networks["company"].PeerNodes[0] != "tcp://10.0.0.1:11010" {
+		t.Fatalf("network config was not updated: %+v", store.data.Networks["company"])
 	}
 }
 

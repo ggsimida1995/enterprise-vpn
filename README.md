@@ -22,11 +22,22 @@ go run ./server -config ./server.json -set-password demo
 
 该命令隐藏输入密码并只保存哈希。账号的 `network_ids`、网络的 `secret`、`subnets`、`proxy_networks` 和 `gateway_device_ids` 都在 `server.json` 中配置；修改后客户端下一次心跳会自动获取新配置。
 
+服务端同时提供最小 Web 配置后台：
+
+```sh
+export VPN_ADMIN_USER=admin
+read -s VPN_ADMIN_PASSWORD; export VPN_ADMIN_PASSWORD
+go run ./server -addr :8080 -config ./server.json
+```
+
+浏览器打开 `http://127.0.0.1:8080/admin`，使用上面的后台账号登录。后台配置的是用户权限和 EasyTier 网络参数，不是 Core 可执行文件路径。
+
 服务端是 HTTP API，可直接放在 HTTPS 反向代理后。也可以使用仓库自带的容器部署：
 
 ```sh
 docker build -t enterprise-vpn-server .
 docker run -d --name enterprise-vpn-server \
+  -e VPN_ADMIN_USER=admin -e VPN_ADMIN_PASSWORD \
   -p 8080:8080 -v enterprise-vpn-data:/data \
   enterprise-vpn-server
 ```
@@ -67,7 +78,7 @@ easytier-core-linux-arm64
 
 推送 `v*` Git tag 后，GitHub Actions 会自动构建并上传各平台客户端。服务端仍作为独立 Go API 部署，建议放在 HTTPS 反向代理后面。
 
-发布包中客户端会自动发现同目录的 `easytier-core`（Windows 为 `easytier-core.exe`）。macOS 包为可双击的 `Enterprise VPN.app`，Windows 包为 `.exe`；用户不需要填写 Core 路径或任何 EasyTier 参数。
+发布包中客户端会自动发现同目录的独立 `easytier-core`（Windows 为 `easytier-core.exe`）。macOS 包为可双击的 `Enterprise VPN.app`，Windows 包为 `.exe`；用户不需要填写 Core 路径或任何 EasyTier 参数。Core 由 EasyTier 独立发布，打包时可通过 `EASYTIER_CORE_DIR` 放入客户端压缩包。
 
 服务端 JSON 中每个用户的 `network_ids` 是网络授权来源；可选的 `allowed_subnets` 可把权限继续收窄到单个子网。网络的 `subnets`、`proxy_networks`、`virtual_cidr`、`peer_nodes` 和 `relay_nodes` 由服务端控制。下一次客户端心跳会热加载新授权并返回新的配置 revision。热加载文件可以省略 `devices` 和 `sessions`，运行中的设备租约和会话会由服务端保留。客户端响应只展示可访问网段，不展示网络密钥、节点或路由编辑项。
 
