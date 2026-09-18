@@ -7,12 +7,10 @@
 ```sh
 cd server
 cp server.example.json server.json
-export VPN_ADMIN_USER=admin
-read -rs VPN_ADMIN_PASSWORD; export VPN_ADMIN_PASSWORD
 go run . -addr :8080 -config ./server.json
 ```
 
-后台地址是 `http://服务器地址:8080/admin`。后台配置用户、网络密钥、Peer、Relay、Gateway、子网代理及用户可访问网段；保存后客户端通过心跳自动获取更新。
+后台地址是 `http://服务器地址:8080/admin`。首次后台登录账号和密码均为 `admin`，系统会强制修改后台密码后才允许配置用户、网络密钥、Peer、Relay、Gateway、子网代理及用户可访问网段；保存后客户端通过心跳自动获取更新。后台密码会持久化到 `server.json`，不再依赖宝塔的环境变量。
 
 修改本地账号密码：
 
@@ -33,8 +31,6 @@ VERSION=server-v0.1.0 ./scripts/package-server.sh
 
 ```sh
 cp server.example.json server.json
-export VPN_ADMIN_USER=admin
-read -rs VPN_ADMIN_PASSWORD; export VPN_ADMIN_PASSWORD
 ./run-server.sh
 ```
 
@@ -46,8 +42,6 @@ read -rs VPN_ADMIN_PASSWORD; export VPN_ADMIN_PASSWORD
 cd server
 ./scripts/build-image.sh
 docker run -d --name enterprise-vpn-server \
-  -e VPN_ADMIN_USER=admin \
-  -e VPN_ADMIN_PASSWORD \
   -p 8080:8080 \
   -v enterprise-vpn-data:/data \
   enterprise-vpn-server:latest

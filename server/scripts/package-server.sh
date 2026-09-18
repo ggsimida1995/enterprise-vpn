@@ -27,8 +27,8 @@ for target in $TARGETS; do
 Enterprise VPN Server $VERSION
 
 1. Copy server.example.json to server.json.
-2. Set VPN_ADMIN_USER and VPN_ADMIN_PASSWORD.
-3. Run ./run-server.sh.
+2. Run ./run-server.sh.
+3. Open /admin and sign in with admin/admin, then change the initial password.
 
 Place this service behind an HTTPS reverse proxy before client distribution.
 EOF

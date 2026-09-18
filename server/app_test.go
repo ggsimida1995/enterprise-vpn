@@ -2,9 +2,7 @@ package main
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -71,8 +69,7 @@ func TestAdminConfigRequiresAuthAndPreservesSessions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	handler := NewHandlerWithAdmin(store, AdminAuth{Username: "operator", Password: "secret"})
-	server := httptest.NewServer(handler)
+	server := httptest.NewServer(NewHandler(store))
 	defer server.Close()
 
 	response, err := http.Get(server.URL + "/admin")
@@ -84,8 +81,47 @@ func TestAdminConfigRequiresAuthAndPreservesSessions(t *testing.T) {
 	}
 	_ = response.Body.Close()
 
-	request, _ := http.NewRequest(http.MethodGet, server.URL+"/api/admin/config", nil)
-	request.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("operator:secret")))
+	request, _ := http.NewRequest(http.MethodGet, server.URL+"/api/admin/status", nil)
+	request.SetBasicAuth("admin", "admin")
+	response, err = http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var status AdminStatus
+	if err := json.NewDecoder(response.Body).Decode(&status); err != nil {
+		t.Fatal(err)
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusOK || !status.MustChangePassword {
+		t.Fatalf("admin status = %+v, status = %d", status, response.StatusCode)
+	}
+
+	request, _ = http.NewRequest(http.MethodGet, server.URL+"/api/admin/config", nil)
+	request.SetBasicAuth("admin", "admin")
+	response, err = http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusForbidden {
+		t.Fatalf("initial admin config status = %d", response.StatusCode)
+	}
+
+	payload, _ := json.Marshal(AdminPasswordChangeRequest{CurrentPassword: "admin", NewPassword: "changed-admin-password"})
+	request, _ = http.NewRequest(http.MethodPost, server.URL+"/api/admin/password", bytes.NewReader(payload))
+	request.SetBasicAuth("admin", "admin")
+	request.Header.Set("Content-Type", "application/json")
+	response, err = http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusOK || store.adminStatus().MustChangePassword {
+		t.Fatalf("admin password change status = %d, state = %+v", response.StatusCode, store.adminStatus())
+	}
+
+	request, _ = http.NewRequest(http.MethodGet, server.URL+"/api/admin/config", nil)
+	request.SetBasicAuth("admin", "changed-admin-password")
 	response, err = http.DefaultClient.Do(request)
 	if err != nil {
 		t.Fatal(err)
@@ -98,17 +134,6 @@ func TestAdminConfigRequiresAuthAndPreservesSessions(t *testing.T) {
 	if response.StatusCode != http.StatusOK || len(config.Users) != 1 || config.Users[0].Password != "" {
 		t.Fatalf("admin config = %+v, status = %d", config, response.StatusCode)
 	}
-	request, _ = http.NewRequest(http.MethodGet, server.URL+"/admin", nil)
-	request.SetBasicAuth("operator", "secret")
-	response, err = http.DefaultClient.Do(request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	page, _ := io.ReadAll(response.Body)
-	_ = response.Body.Close()
-	if response.StatusCode != http.StatusOK || !bytes.Contains(page, []byte("企业内网服务端配置")) {
-		t.Fatalf("admin page status/body = %d/%q", response.StatusCode, page)
-	}
 
 	config.Users[0].Password = "changed"
 	config.Networks["company"] = Network{
@@ -116,9 +141,9 @@ func TestAdminConfigRequiresAuthAndPreservesSessions(t *testing.T) {
 		VirtualCIDR: "10.144.0.0/16", Subnets: []string{"192.168.10.0/24"},
 		PeerNodes: []string{"tcp://10.0.0.1:11010"},
 	}
-	payload, _ := json.Marshal(config)
+	payload, _ = json.Marshal(config)
 	request, _ = http.NewRequest(http.MethodPut, server.URL+"/api/admin/config", bytes.NewReader(payload))
-	request.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("operator:secret")))
+	request.SetBasicAuth("admin", "changed-admin-password")
 	request.Header.Set("Content-Type", "application/json")
 	response, err = http.DefaultClient.Do(request)
 	if err != nil {
@@ -134,18 +159,33 @@ func TestAdminConfigRequiresAuthAndPreservesSessions(t *testing.T) {
 	if store.data.Networks["company"].PeerNodes[0] != "tcp://10.0.0.1:11010" {
 		t.Fatalf("network config was not updated: %+v", store.data.Networks["company"])
 	}
+	reloaded, err := OpenStore(path)
+	if err != nil || !reloaded.validAdminCredentials("admin", "changed-admin-password") || reloaded.adminStatus().MustChangePassword {
+		t.Fatalf("persisted admin credentials = %v, %+v", err, reloaded.adminStatus())
+	}
 }
 
-func TestRequiredAdminAuth(t *testing.T) {
-	t.Setenv("VPN_ADMIN_USER", "operator")
-	t.Setenv("VPN_ADMIN_PASSWORD", "secret")
-	auth, err := requiredAdminAuth()
-	if err != nil || auth.Username != "operator" || auth.Password != "secret" {
-		t.Fatalf("required admin auth = %+v, %v", auth, err)
+func TestOpenStoreMigratesInitialAdmin(t *testing.T) {
+	path := t.TempDir() + "/server.json"
+	legacy := defaultState()
+	legacy.Admin = AdminAccount{}
+	encoded, err := json.Marshal(legacy)
+	if err != nil {
+		t.Fatal(err)
 	}
-	t.Setenv("VPN_ADMIN_PASSWORD", "")
-	if _, err := requiredAdminAuth(); err == nil {
-		t.Fatal("missing password should fail")
+	if err := os.WriteFile(path, encoded, 0600); err != nil {
+		t.Fatal(err)
+	}
+	store, err := OpenStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !store.validAdminCredentials("admin", "admin") || !store.adminStatus().MustChangePassword {
+		t.Fatalf("migrated admin status = %+v", store.adminStatus())
+	}
+	persisted, err := os.ReadFile(path)
+	if err != nil || !bytes.Contains(persisted, []byte(`"admin"`)) {
+		t.Fatalf("migrated admin was not persisted: %v", err)
 	}
 }
 

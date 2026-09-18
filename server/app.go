@@ -34,10 +34,20 @@ type Store struct {
 }
 
 type State struct {
+	Admin    AdminAccount       `json:"admin"`
 	Users    []User             `json:"users"`
 	Networks map[string]Network `json:"networks"`
 	Devices  map[string]Device  `json:"devices"`
 	Sessions map[string]Session `json:"sessions,omitempty"`
+}
+
+// AdminAccount is the server-side Web administration account. It is separate
+// from enterprise VPN client users and is never included in client responses.
+type AdminAccount struct {
+	Username           string `json:"username"`
+	PasswordHash       string `json:"password_hash"`
+	PasswordSalt       string `json:"password_salt"`
+	MustChangePassword bool   `json:"must_change_password"`
 }
 
 type User struct {
@@ -147,17 +157,28 @@ func OpenStore(path string) (*Store, error) {
 	if s.data.Sessions == nil {
 		s.data.Sessions = map[string]Session{}
 	}
+	adminAdded := false
+	if s.data.Admin == (AdminAccount{}) {
+		s.data.Admin = defaultAdminAccount()
+		adminAdded = true
+	}
 	s.normalizeDevicesLocked()
 	if err := validateState(s.data); err != nil {
 		return nil, err
 	}
 	s.fileHash = contentDigest(b)
+	if adminAdded {
+		if err := s.persistLocked(); err != nil {
+			return nil, err
+		}
+	}
 	return s, nil
 }
 
 func defaultState() State {
 	salt := "enterprise-vpn-demo-salt"
 	return State{
+		Admin: defaultAdminAccount(),
 		Users: []User{{ID: "user-demo", Username: "demo", PasswordHash: hashPassword("demo", salt), PasswordSalt: salt, NetworkIDs: []string{"company"}, Revision: 1}},
 		Networks: map[string]Network{"company": {
 			ID: "company", Name: "公司内网", Secret: "replace-this-network-secret", Gateway: "192.168.10.1",
@@ -168,7 +189,21 @@ func defaultState() State {
 	}
 }
 
+func defaultAdminAccount() AdminAccount {
+	const password = "admin"
+	const salt = "enterprise-vpn-initial-admin-salt"
+	return AdminAccount{
+		Username:           "admin",
+		PasswordHash:       hashPassword(password, salt),
+		PasswordSalt:       salt,
+		MustChangePassword: true,
+	}
+}
+
 func validateState(state State) error {
+	if strings.TrimSpace(state.Admin.Username) == "" || state.Admin.PasswordHash == "" || state.Admin.PasswordSalt == "" {
+		return errors.New("server state has no admin password verifier")
+	}
 	seenUsers := make(map[string]bool, len(state.Users))
 	seenUserIDs := make(map[string]bool, len(state.Users))
 	for _, user := range state.Users {
@@ -404,6 +439,9 @@ func (s *Store) reloadIfChangedLocked() error {
 	if data.Sessions == nil {
 		data.Sessions = s.data.Sessions
 	}
+	if data.Admin == (AdminAccount{}) {
+		data.Admin = s.data.Admin
+	}
 	if data.Devices == nil {
 		data.Devices = s.data.Devices
 	}
@@ -427,10 +465,6 @@ func (s *Store) reloadIfChangedLocked() error {
 }
 
 func NewHandler(store *Store) http.Handler {
-	return NewHandlerWithAdmin(store, adminAuthFromEnv())
-}
-
-func NewHandlerWithAdmin(store *Store, auth AdminAuth) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -438,7 +472,7 @@ func NewHandlerWithAdmin(store *Store, auth AdminAuth) http.Handler {
 	mux.HandleFunc("POST /api/client/login", store.handleClientAuth)
 	mux.HandleFunc("POST /api/client/heartbeat", store.handleHeartbeat)
 	mux.HandleFunc("POST /api/client/logout", store.handleLogout)
-	admin := adminRoutes(store, auth)
+	admin := adminRoutes(store)
 	mux.Handle("/admin", admin)
 	mux.Handle("/api/admin/", admin)
 	return withJSONLimit(mux)
