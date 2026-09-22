@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>企业内网</title>
+  </head>
+  <body>
+    <main class="app-shell">
+      <div class="ambient ambient-top" aria-hidden="true"></div>
+      <div class="ambient ambient-bottom" aria-hidden="true"></div>
+
+      <div class="app-content">
+        <header id="brand" class="brand">
+          <div class="brand-mark" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </div>
+          <div>
+            <h1>企业内网</h1>
+            <p>安全连接，随时协作</p>
+          </div>
+        </header>
+
+        <section id="login-view" class="login-view" aria-labelledby="login-title">
+          <div class="section-kicker">WELCOME BACK</div>
+          <h2 id="login-title">登录到企业网络</h2>
+          <p class="section-description">使用企业账号建立安全连接</p>
+
+          <form id="login-form">
+            <label class="field">
+              <span>账号</span>
+              <input id="username" name="username" autocomplete="username" placeholder="请输入账号" required autofocus />
+            </label>
+            <label class="field">
+              <span>密码</span>
+              <input id="password" name="password" type="password" autocomplete="current-password" placeholder="请输入密码" required />
+            </label>
+            <button id="login-button" type="submit">登录</button>
+          </form>
+        </section>
+
+        <section id="connected" class="connected-view" hidden aria-labelledby="connected-title">
+          <div class="connected-header">
+            <div>
+              <div class="section-kicker success-kicker">CONNECTED</div>
+              <h2 id="connected-title">企业内网</h2>
+            </div>
+            <div class="header-actions">
+              <button id="vpn-toggle" class="vpn-toggle vpn-toggle-on" type="button" title="关闭 EasyTier VPN" aria-label="关闭 EasyTier VPN" aria-pressed="true">
+                <span id="vpn-toggle-icon" class="vpn-toggle-icon" aria-hidden="true">■</span>
+              </button>
+              <div class="account-menu-wrap">
+                <button id="account-menu-button" class="account-menu-button" type="button" title="账户菜单" aria-label="账户菜单" aria-expanded="false" aria-controls="account-menu">
+                  <span class="avatar-icon" aria-hidden="true"><i></i></span>
+                </button>
+                <div id="account-menu" class="account-menu" role="menu" hidden>
+                  <div class="account-menu-name" id="menu-account">-</div>
+                  <button id="menu-logout" class="account-menu-item" type="button" role="menuitem">退出登录</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <nav class="tabs" aria-label="客户端页面">
+            <button class="tab-button active" type="button" data-tab="status">状态</button>
+            <button class="tab-button" type="button" data-tab="config">配置</button>
+            <button class="tab-button" type="button" data-tab="logs">日志</button>
+          </nav>
+
+          <section class="tab-panel active" data-panel="status" aria-live="polite">
+            <div class="connection-chain">
+              <div class="chain-heading"><h3>连接链路</h3><span id="connection-summary">正在检查</span></div>
+              <div class="chain-grid">
+                <div class="chain-step" data-chain="server"><i></i><span>服务端连接</span><strong>未连接</strong></div>
+                <div class="chain-step" data-chain="auth"><i></i><span>账号认证</span><strong>未完成</strong></div>
+                <div class="chain-step" data-chain="config"><i></i><span>配置拉取</span><strong>未拉取</strong></div>
+                <div class="chain-step" data-chain="core"><i></i><span>核心启动</span><strong>未启动</strong></div>
+                <div class="chain-step" data-chain="rpc"><i></i><span>VPN 网络</span><strong>未连接</strong></div>
+              </div>
+            </div>
+
+            <section class="status-card">
+              <div class="status-card-header">
+                <div>
+                  <h3 id="network">EasyTier 网络</h3>
+                  <p id="core-version">核心版本读取中…</p>
+                </div>
+                <span id="core-state" class="state-badge state-badge-pending"><i></i>读取中</span>
+              </div>
+              <div class="traffic-row">
+                <div><span class="traffic-label traffic-download">↓ 下载</span><strong id="download-rate">0</strong><small>KB/s</small></div>
+                <div><span class="traffic-label traffic-upload">↑ 上传</span><strong id="upload-rate">0</strong><small>KB/s</small></div>
+              </div>
+              <div class="status-details">
+                <div><span>虚拟 IPv4 地址</span><strong id="virtual-ip">-</strong></div>
+                <div><span>NAT 类型</span><strong id="nat-type">-</strong></div>
+                <div><span>端口范围</span><strong id="port-range">-</strong></div>
+                <div><span>当前账号</span><strong id="account">-</strong></div>
+              </div>
+            </section>
+
+            <section class="peers-section" aria-labelledby="peers-title">
+              <div class="peers-heading">
+                <h3 id="peers-title">对等节点信息</h3>
+                <span id="peer-count">0 个节点</span>
+              </div>
+              <div id="peers" class="peer-list"><p class="empty-state">正在读取节点信息…</p></div>
+            </section>
+          </section>
+
+          <section class="tab-panel" data-panel="config">
+            <div class="panel-heading"><h3>服务端配置</h3><span id="config-state">未读取</span></div>
+            <div class="config-meta">
+              <div><span>网络名称</span><strong id="config-network">-</strong></div>
+              <div><span>配置版本</span><strong id="config-revision">-</strong></div>
+            </div>
+            <pre id="config-content" class="code-panel">正在读取服务端配置…</pre>
+          </section>
+
+          <section class="tab-panel" data-panel="logs">
+            <div class="panel-heading"><h3>运行日志</h3><button id="refresh-logs" class="text-button" type="button">刷新</button></div>
+            <h4>客户端日志</h4>
+            <pre id="client-logs" class="log-panel">正在读取日志…</pre>
+            <h4>EasyTier 核心日志</h4>
+            <pre id="easytier-logs" class="log-panel">正在读取日志…</pre>
+          </section>
+
+        </section>
+
+        <p id="message" class="message" role="status"></p>
+        <footer>Enterprise VPN · Secure private network</footer>
+      </div>
+
+      <section id="loading" class="loading-screen" hidden aria-live="polite" aria-busy="true">
+        <div class="loading-content">
+          <div class="loading-orb" aria-hidden="true"><i></i><i></i><i></i></div>
+          <div class="loading-kicker">ENTERPRISE VPN</div>
+          <p id="loading-message" class="loading-message">正在准备安全连接…</p>
+          <div class="loading-steps" aria-hidden="true">
+            <span data-step="0"></span><span data-step="1"></span><span data-step="2"></span><span data-step="3"></span><span data-step="4"></span>
+          </div>
+        </div>
+      </section>
+    </main>
+    <link rel="stylesheet" href="./style.css" />
+    <script src="./main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,4 @@
+/target/
+/dist/
+/cores/
+.DS_Store

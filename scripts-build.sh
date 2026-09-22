@@ -1,0 +1,64 @@
+#!/bin/sh
+set -eu
+
+ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+OUT_DIR=${OUT_DIR:-"$ROOT_DIR/dist"}
+CORE_DIR=${EASYTIER_CORE_DIR:-"$ROOT_DIR/cores"}
+TARGETS=${TARGETS:-native}
+mkdir -p "$OUT_DIR" "$ROOT_DIR/src-tauri/binaries"
+
+copy_core() {
+  target=$1
+  windows=no
+  case "$target" in
+    native)
+      case "$(uname -s):$(uname -m)" in
+        Darwin:arm64) source="$CORE_DIR/easytier-core-darwin-arm64"; cli_source="$CORE_DIR/easytier-cli-darwin-arm64" ;;
+        Darwin:x86_64) source="$CORE_DIR/easytier-core-darwin-amd64"; cli_source="$CORE_DIR/easytier-cli-darwin-amd64" ;;
+        MINGW*:x86_64|MSYS*:x86_64) source="$CORE_DIR/easytier-core-windows-amd64"; cli_source="$CORE_DIR/easytier-cli-windows-amd64"; windows=yes ;;
+        *) source="$CORE_DIR/easytier-core" ;;
+      esac
+      ;;
+    darwin/arm64) source="$CORE_DIR/easytier-core-darwin-arm64"; cli_source="$CORE_DIR/easytier-cli-darwin-arm64" ;;
+    darwin/amd64) source="$CORE_DIR/easytier-core-darwin-amd64"; cli_source="$CORE_DIR/easytier-cli-darwin-amd64" ;;
+    windows/amd64) source="$CORE_DIR/easytier-core-windows-amd64"; cli_source="$CORE_DIR/easytier-cli-windows-amd64"; windows=yes ;;
+    *) echo "unsupported target: $target" >&2; exit 1 ;;
+  esac
+
+  [ -f "$source" ] || {
+    echo "missing EasyTier Core: $source" >&2
+    echo "run EASYTIER_VERSION=... ./scripts/fetch-easytier-core.sh first" >&2
+    exit 1
+  }
+  [ -f "$cli_source" ] || {
+    echo "missing EasyTier CLI: $cli_source" >&2
+    echo "run EASYTIER_VERSION=... ./scripts/fetch-easytier-core.sh first" >&2
+    exit 1
+  }
+  if [ "$windows" = yes ]; then
+    cp "$source" "$ROOT_DIR/src-tauri/binaries/easytier-core.exe"
+    cp "$cli_source" "$ROOT_DIR/src-tauri/binaries/easytier-cli.exe"
+  else
+    cp "$source" "$ROOT_DIR/src-tauri/binaries/easytier-core"
+    cp "$cli_source" "$ROOT_DIR/src-tauri/binaries/easytier-cli"
+  fi
+  chmod +x "$ROOT_DIR/src-tauri/binaries"/easytier-core* "$ROOT_DIR/src-tauri/binaries"/easytier-cli* 2>/dev/null || true
+}
+
+build_one() {
+  target=$1
+  copy_core "$target"
+  cargo_args=
+  case "$target" in
+    native) bundle_dir="$ROOT_DIR/src-tauri/target/release/bundle" ;;
+    darwin/arm64) cargo_args="--target aarch64-apple-darwin"; bundle_dir="$ROOT_DIR/src-tauri/target/aarch64-apple-darwin/release/bundle" ;;
+    darwin/amd64) cargo_args="--target x86_64-apple-darwin"; bundle_dir="$ROOT_DIR/src-tauri/target/x86_64-apple-darwin/release/bundle" ;;
+    windows/amd64) cargo_args="--target x86_64-pc-windows-msvc"; bundle_dir="$ROOT_DIR/src-tauri/target/x86_64-pc-windows-msvc/release/bundle" ;;
+  esac
+  (cd "$ROOT_DIR/src-tauri" && cargo tauri build $cargo_args)
+  find "$bundle_dir" -type f \( -name '*.dmg' -o -name '*.app.tar.gz' -o -name '*.msi' -o -name '*.exe' -o -name '*.nsis.zip' \) -exec cp {} "$OUT_DIR/" \;
+}
+
+for target in $TARGETS; do
+  build_one "$target"
+done

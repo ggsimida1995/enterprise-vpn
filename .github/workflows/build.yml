@@ -1,0 +1,45 @@
+name: build-tauri-client
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["rust-v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: macos-14
+            target: darwin/arm64
+          - os: macos-13
+            target: darwin/amd64
+          - os: windows-latest
+            target: windows/amd64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version 2.11.4
+      - name: Download EasyTier Core
+        env:
+          EASYTIER_VERSION: ${{ vars.EASYTIER_VERSION || 'v2.6.4' }}
+        shell: bash
+        run: ./scripts/fetch-easytier-core.sh
+        working-directory: client-rust
+      - name: Build installer
+        env:
+          TARGETS: ${{ matrix.target }}
+          VPN_SERVER_URL: ${{ vars.VPN_SERVER_URL || 'http://172.22.159.5:4096' }}
+          EASYTIER_CORE_DIR: cores
+        shell: bash
+        run: ./scripts-build.sh
+        working-directory: client-rust
+      - uses: actions/upload-artifact@v4
+        with:
+          name: enterprise-vpn-client-${{ matrix.target }}
+          path: client-rust/dist/*
