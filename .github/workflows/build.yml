@@ -3,7 +3,10 @@ name: build-tauri-client
 on:
   workflow_dispatch:
   push:
-    tags: ["rust-v*"]
+    branches:
+      - main
+    tags:
+      - "v*"
 
 permissions:
   contents: write
@@ -23,6 +26,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Set release version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          python3 - "$VERSION" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          version = sys.argv[1]
+          cargo = pathlib.Path("src-tauri/Cargo.toml")
+          cargo_text = cargo.read_text()
+          cargo.write_text(cargo_text.replace('version = "0.1.6"', f'version = "{version}"', 1))
+
+          config = pathlib.Path("src-tauri/tauri.conf.json")
+          data = json.loads(config.read_text())
+          data["version"] = version
+          config.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+          PY
       - name: Install Tauri CLI
         run: cargo install tauri-cli --version 2.11.4
       - name: Download EasyTier Core
@@ -30,7 +53,6 @@ jobs:
           EASYTIER_VERSION: ${{ vars.EASYTIER_VERSION || 'v2.6.4' }}
         shell: bash
         run: ./scripts/fetch-easytier-core.sh
-        working-directory: client-rust
       - name: Build installer
         env:
           TARGETS: ${{ matrix.target }}
@@ -38,8 +60,27 @@ jobs:
           EASYTIER_CORE_DIR: cores
         shell: bash
         run: ./scripts-build.sh
-        working-directory: client-rust
       - uses: actions/upload-artifact@v4
         with:
           name: enterprise-vpn-client-${{ matrix.target }}
-          path: client-rust/dist/*
+          path: dist/*
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: enterprise-vpn-client-*
+          path: release-assets
+          merge-multiple: true
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" release-assets/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Enterprise VPN $TAG" \
+            --generate-notes
