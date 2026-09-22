@@ -72,7 +72,7 @@ jobs:
         run: ./scripts-build.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: enterprise-vpn-client-${{ matrix.target }}
+          name: enterprise-vpn-client-${{ matrix.os }}
           path: dist/*
 
   release:
