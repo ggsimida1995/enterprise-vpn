@@ -14,6 +14,7 @@ permissions:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: macos-14
@@ -21,12 +22,12 @@ jobs:
             rust_target: aarch64-apple-darwin
             bundles: dmg
             artifact: macos-arm64
-          - os: windows-latest
+          - os: windows-2022
             target: windows/amd64
             rust_target: x86_64-pc-windows-msvc
             bundles: msi
             artifact: windows-x86_64
-          - os: windows-latest
+          - os: windows-2022
             target: windows/arm64
             rust_target: aarch64-pc-windows-msvc
             bundles: msi
