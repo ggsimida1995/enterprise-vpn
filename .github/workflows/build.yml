@@ -3,8 +3,6 @@ name: build-tauri-client
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
     tags:
       - "v*"
 
