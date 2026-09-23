@@ -1194,15 +1194,7 @@ fn bundled_core_path(app: &tauri::AppHandle) -> Result<PathBuf> {
     } else {
         "easytier-core"
     };
-    let path = app.path().resource_dir()?.join("binaries").join(name);
-    if path.exists() {
-        return Ok(path);
-    }
-    let executable = std::env::current_exe()?;
-    Ok(executable
-        .parent()
-        .context("无法定位客户端目录")?
-        .join(name))
+    bundled_binary_path(app, name)
 }
 
 fn bundled_cli_path(app: &tauri::AppHandle) -> Result<PathBuf> {
@@ -1211,15 +1203,32 @@ fn bundled_cli_path(app: &tauri::AppHandle) -> Result<PathBuf> {
     } else {
         "easytier-cli"
     };
-    let path = app.path().resource_dir()?.join("binaries").join(name);
-    if path.exists() {
-        return Ok(path);
+    bundled_binary_path(app, name)
+}
+
+fn bundled_binary_path(app: &tauri::AppHandle, name: &str) -> Result<PathBuf> {
+    let resource_dir = app.path().resource_dir()?;
+    for path in [
+        resource_dir.join("binaries").join(name),
+        resource_dir.join(name),
+    ] {
+        if path.is_file() {
+            return Ok(path);
+        }
     }
+
     let executable = std::env::current_exe()?;
-    Ok(executable
-        .parent()
-        .context("无法定位客户端目录")?
-        .join(name))
+    let executable_dir = executable.parent().context("无法定位客户端目录")?;
+    for path in [
+        executable_dir.join("binaries").join(name),
+        executable_dir.join(name),
+    ] {
+        if path.is_file() {
+            return Ok(path);
+        }
+    }
+
+    Err(anyhow!("未找到 EasyTier 可执行文件: {}", name))
 }
 
 #[cfg(test)]
