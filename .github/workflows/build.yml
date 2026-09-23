@@ -18,17 +18,34 @@ jobs:
         include:
           - os: macos-14
             target: darwin/arm64
-            bundles: ""
-          - os: macos-13
-            target: darwin/amd64
-            bundles: ""
+            rust_target: aarch64-apple-darwin
+            bundles: dmg
+            artifact: macos-arm64
           - os: windows-latest
             target: windows/amd64
-            bundles: nsis
+            rust_target: x86_64-pc-windows-msvc
+            bundles: msi
+            artifact: windows-x86_64
+          - os: windows-latest
+            target: windows/arm64
+            rust_target: aarch64-pc-windows-msvc
+            bundles: msi
+            artifact: windows-arm64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Install Rust target
+        shell: bash
+        run: rustup target add "${{ matrix.rust_target }}"
+      - name: Enable VBScript for WiX MSI bundling
+        if: matrix.bundles == 'msi'
+        shell: pwsh
+        run: |
+          dism.exe /Online /Enable-Feature /FeatureName:VBSCRIPT /All /NoRestart
+          if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 3010) {
+            exit $LASTEXITCODE
+          }
       - name: Set release version
         if: startsWith(github.ref, 'refs/tags/v')
         shell: bash
@@ -70,14 +87,16 @@ jobs:
         env:
           TARGETS: ${{ matrix.target }}
           BUNDLES: ${{ matrix.bundles }}
+          ARTIFACT_SUFFIX: ${{ matrix.artifact }}
           VPN_SERVER_URL: ${{ vars.VPN_SERVER_URL || 'http://172.22.159.5:4096' }}
           EASYTIER_CORE_DIR: cores
         shell: bash
         run: ./scripts-build.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: enterprise-vpn-client-${{ matrix.os }}
-          path: dist/*
+          name: enterprise-vpn-client-${{ matrix.artifact }}
+          path: dist/*${{ matrix.artifact }}*
+          if-no-files-found: error
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')

@@ -21,7 +21,8 @@ button:disabled { cursor: wait; opacity: .65; }
 .ambient-top { width: 230px; height: 230px; top: -145px; right: -70px; background: rgba(93, 157, 255, .15); }
 .ambient-bottom { width: 260px; height: 260px; bottom: -190px; left: -120px; background: rgba(130, 204, 190, .13); }
 
-.brand { display: flex; align-items: center; gap: 12px; }
+.brand { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.brand-identity { display: flex; align-items: center; gap: 12px; }
 .brand-mark { display: flex; align-items: end; gap: 3px; width: 34px; height: 34px; padding: 8px 7px; border-radius: 11px; background: #1769aa; box-shadow: 0 8px 18px rgba(23, 105, 170, .2); }
 .brand-mark span { display: block; width: 5px; border-radius: 4px; background: #fff; }
 .brand-mark span:nth-child(1) { height: 9px; opacity: .65; }
@@ -29,6 +30,8 @@ button:disabled { cursor: wait; opacity: .65; }
 .brand-mark span:nth-child(3) { height: 20px; }
 .brand h1 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: .02em; }
 .brand p { margin: 3px 0 0; color: #8090a1; font-size: 11px; }
+.icon-button { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid #cbd6e2; border-radius: 50%; background: rgba(255, 255, 255, .62); color: #526679; font-size: 18px; line-height: 1; transition: border-color .18s, color .18s, background .18s, transform .18s; }
+.icon-button:hover { border-color: #1769aa; background: #fff; color: #1769aa; transform: translateY(-1px); }
 
 .login-view { width: 100%; max-width: 440px; margin: 38px auto 0; }
 .connected-view { width: 100%; max-width: 440px; margin: 14px auto 0; }
@@ -139,6 +142,21 @@ h2 { margin: 0; color: #17212b; font-size: 28px; line-height: 1.2; letter-spacin
 .text-button { padding: 0; border: 0; background: transparent; color: #1769aa; font-size: 11px; }
 .secondary-button { padding: 9px 16px; border: 1px solid #c6d2de; border-radius: 7px; background: transparent; color: #526679; font-size: 12px; }
 .secondary-button:hover { border-color: #1769aa; color: #1769aa; }
+.primary-button { padding: 9px 16px; border: 1px solid #1769aa; border-radius: 7px; background: #1769aa; color: #fff; font-size: 12px; font-weight: 650; }
+.primary-button:hover { background: #12588e; }
+.settings-dialog { width: min(370px, calc(100vw - 36px)); padding: 0; border: 1px solid #dce5ed; border-radius: 12px; background: #fff; color: #263849; box-shadow: 0 20px 55px rgba(38, 56, 73, .22); }
+.settings-dialog::backdrop { background: rgba(23, 33, 43, .24); }
+.settings-dialog form { padding: 20px; }
+.dialog-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.dialog-heading h3 { margin: 0; font-size: 17px; }
+.dialog-heading p { margin: 6px 0 0; color: #8190a0; font-size: 11px; line-height: 1.5; }
+.dialog-close { width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: #8190a0; font-size: 21px; line-height: 1; }
+.dialog-close:hover { background: #eef2f6; color: #263849; }
+.dialog-field { display: block; margin-top: 20px; }
+.dialog-field span { display: block; margin-bottom: 7px; color: #6d7c8c; font-size: 11px; font-weight: 650; }
+.dialog-field input { width: 100%; padding: 10px 11px; border: 1px solid #cbd6e2; border-radius: 7px; outline: 0; color: #263849; background: #fff; font-size: 13px; }
+.dialog-field input:focus { border-color: #2c84c4; box-shadow: 0 0 0 3px rgba(44, 132, 196, .12); }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }
 .message { min-height: 18px; margin: 0; color: #b42318; font-size: 12px; }
 footer { margin-top: 26px; padding-top: 0; color: #a1adba; font-size: 10px; letter-spacing: .04em; }
 

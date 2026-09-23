@@ -35,6 +35,12 @@ struct DeviceState {
     device_token: String,
     #[serde(default)]
     username: String,
+    #[serde(default = "default_server_url")]
+    server_url: String,
+}
+
+fn default_server_url() -> String {
+    DEFAULT_SERVER_URL.to_owned()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -186,11 +192,22 @@ async fn login(
         client_log("login rejected locally: empty username or password");
         return Err("账号和密码不能为空".to_owned());
     }
+    let path = state_path().map_err(|error| error.to_string())?;
+    let saved = load_state(&path).map_err(|error| error.to_string())?;
     client_log(&format!(
-        "login requested username={username} endpoint={DEFAULT_SERVER_URL}"
+        "login requested username={username} endpoint={}",
+        saved.server_url
     ));
 
-    start_session(app, username, password, false, state.inner().clone()).await
+    start_session(
+        app,
+        username,
+        password,
+        false,
+        saved.server_url,
+        state.inner().clone(),
+    )
+    .await
 }
 
 #[tauri::command]
@@ -205,13 +222,14 @@ async fn restore_session(
     }
     client_log(&format!(
         "restoring login username={} endpoint={}",
-        saved.username, DEFAULT_SERVER_URL
+        saved.username, saved.server_url
     ));
     start_session(
         app,
         saved.username,
         String::new(),
         true,
+        saved.server_url,
         state.inner().clone(),
     )
     .await
@@ -222,6 +240,7 @@ async fn start_session(
     username: String,
     password: String,
     restore: bool,
+    server_url: String,
     session_state: Arc<Mutex<SessionState>>,
 ) -> Result<LoginResult, String> {
     let (stop_tx, stop_rx) = tokio::sync::oneshot::channel();
@@ -253,7 +272,7 @@ async fn start_session(
             username,
             password,
             restore,
-            DEFAULT_SERVER_URL.to_owned(),
+            server_url,
             stop_rx,
             vpn_rx,
             ready_tx,
@@ -279,6 +298,25 @@ async fn start_session(
         .await
         .map_err(|_| "客户端会话启动失败".to_owned())?
         .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn get_service_url() -> Result<String, String> {
+    let path = state_path().map_err(|error| error.to_string())?;
+    load_state(&path)
+        .map(|state| state.server_url)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn set_service_url(server_url: String) -> Result<String, String> {
+    let server_url = normalize_server_url(&server_url).map_err(|error| error.to_string())?;
+    let path = state_path().map_err(|error| error.to_string())?;
+    let mut state = load_state(&path).map_err(|error| error.to_string())?;
+    state.server_url = server_url.clone();
+    save_state(&path, &state).map_err(|error| error.to_string())?;
+    client_log(&format!("service endpoint updated endpoint={server_url}"));
+    Ok(server_url)
 }
 
 #[tauri::command]
@@ -520,6 +558,8 @@ pub fn run() {
             restore_session,
             logout,
             set_vpn_enabled,
+            get_service_url,
+            set_service_url,
             get_easytier_status,
             close_client,
             set_window_mode,
@@ -890,6 +930,15 @@ fn agent_url(server: &str) -> Result<Url> {
     Ok(url)
 }
 
+fn normalize_server_url(server: &str) -> Result<String> {
+    let value = server.trim().trim_end_matches('/').to_owned();
+    let url = Url::parse(&value).context("服务地址格式不正确")?;
+    if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
+        return Err(anyhow!("服务地址必须使用 http 或 https，并包含主机名"));
+    }
+    Ok(value)
+}
+
 fn state_path() -> Result<PathBuf> {
     let dirs =
         ProjectDirs::from("com", "enterprise", "EnterpriseVPN").context("无法获取应用配置目录")?;
@@ -899,8 +948,12 @@ fn state_path() -> Result<PathBuf> {
 
 fn load_state(path: &Path) -> Result<DeviceState> {
     if path.exists() {
-        let state: DeviceState = serde_json::from_slice(&fs::read(path)?)?;
+        let mut state: DeviceState = serde_json::from_slice(&fs::read(path)?)?;
         if !state.device_id.is_empty() {
+            if state.server_url.trim().is_empty() {
+                state.server_url = default_server_url();
+                save_state(path, &state)?;
+            }
             return Ok(state);
         }
     }
@@ -908,6 +961,7 @@ fn load_state(path: &Path) -> Result<DeviceState> {
         device_id: Uuid::new_v4().to_string(),
         device_token: String::new(),
         username: String::new(),
+        server_url: default_server_url(),
     };
     save_state(path, &state)?;
     Ok(state)
@@ -939,7 +993,14 @@ impl CoreProcess {
             .append(true)
             .open(&log_path)?;
         let stderr = stdout.try_clone()?;
-        let child = Command::new(executable)
+        let mut command = Command::new(executable);
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+
+            command.creation_flags(0x08000000);
+        }
+        let child = command
             .args(["--config-file", path.to_string_lossy().as_ref()])
             .arg("--rpc-portal")
             .arg(format!("127.0.0.1:{rpc_port}"))
@@ -1163,7 +1224,7 @@ fn bundled_cli_path(app: &tauri::AppHandle) -> Result<PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use super::{CliPeerRecord, parse_size, rpc_port_range};
+    use super::{CliPeerRecord, normalize_server_url, parse_size, rpc_port_range};
     use serde_json::json;
 
     #[test]
@@ -1194,5 +1255,15 @@ mod tests {
         }))
         .expect("peer record should deserialize");
         assert_eq!(peer.cidr, "10.10.10.3/24");
+    }
+
+    #[test]
+    fn service_url_accepts_http_and_https_only() {
+        assert_eq!(
+            normalize_server_url(" https://vpn.example.com/ ").unwrap(),
+            "https://vpn.example.com"
+        );
+        assert!(normalize_server_url("ftp://vpn.example.com").is_err());
+        assert!(normalize_server_url("vpn.example.com").is_err());
     }
 }

@@ -6,6 +6,7 @@ OUT_DIR=${OUT_DIR:-"$ROOT_DIR/dist"}
 CORE_DIR=${EASYTIER_CORE_DIR:-"$ROOT_DIR/cores"}
 TARGETS=${TARGETS:-native}
 BUNDLES=${BUNDLES:-}
+ARTIFACT_SUFFIX=${ARTIFACT_SUFFIX:-}
 mkdir -p "$OUT_DIR" "$ROOT_DIR/src-tauri/binaries"
 
 copy_core() {
@@ -21,8 +22,8 @@ copy_core() {
       esac
       ;;
     darwin/arm64) source="$CORE_DIR/easytier-core-darwin-arm64"; cli_source="$CORE_DIR/easytier-cli-darwin-arm64" ;;
-    darwin/amd64) source="$CORE_DIR/easytier-core-darwin-amd64"; cli_source="$CORE_DIR/easytier-cli-darwin-amd64" ;;
     windows/amd64) source="$CORE_DIR/easytier-core-windows-amd64"; cli_source="$CORE_DIR/easytier-cli-windows-amd64"; windows=yes ;;
+    windows/arm64) source="$CORE_DIR/easytier-core-windows-arm64"; cli_source="$CORE_DIR/easytier-cli-windows-arm64"; windows=yes ;;
     *) echo "unsupported target: $target" >&2; exit 1 ;;
   esac
 
@@ -53,15 +54,29 @@ build_one() {
   case "$target" in
     native) bundle_dir="$ROOT_DIR/src-tauri/target/release/bundle" ;;
     darwin/arm64) cargo_args="--target aarch64-apple-darwin"; bundle_dir="$ROOT_DIR/src-tauri/target/aarch64-apple-darwin/release/bundle" ;;
-    darwin/amd64) cargo_args="--target x86_64-apple-darwin"; bundle_dir="$ROOT_DIR/src-tauri/target/x86_64-apple-darwin/release/bundle" ;;
     windows/amd64) cargo_args="--target x86_64-pc-windows-msvc"; bundle_dir="$ROOT_DIR/src-tauri/target/x86_64-pc-windows-msvc/release/bundle" ;;
+    windows/arm64) cargo_args="--target aarch64-pc-windows-msvc"; bundle_dir="$ROOT_DIR/src-tauri/target/aarch64-pc-windows-msvc/release/bundle" ;;
   esac
   if [ -n "$BUNDLES" ]; then
     (cd "$ROOT_DIR/src-tauri" && cargo tauri build $cargo_args --bundles "$BUNDLES")
   else
     (cd "$ROOT_DIR/src-tauri" && cargo tauri build $cargo_args)
   fi
-  find "$bundle_dir" -type f \( -name '*.dmg' -o -name '*.app.tar.gz' -o -name '*.msi' -o -name '*.exe' -o -name '*.nsis.zip' \) -exec cp {} "$OUT_DIR/" \;
+  if [ "$BUNDLES" = "msi" ]; then
+    find "$bundle_dir" -type f -name '*.msi' -exec sh -c '
+      for file do
+        cp "$file" "$1/$(basename "${file%.msi}")-$2.msi"
+      done
+    ' sh "$OUT_DIR" "$ARTIFACT_SUFFIX" {} +
+  elif [ "$BUNDLES" = "dmg" ]; then
+    find "$bundle_dir" -type f -name '*.dmg' -exec sh -c '
+      for file do
+        cp "$file" "$1/$(basename "${file%.dmg}")-$2.dmg"
+      done
+    ' sh "$OUT_DIR" "$ARTIFACT_SUFFIX" {} +
+  else
+    find "$bundle_dir" -type f \( -name '*.dmg' -o -name '*.app.tar.gz' -o -name '*.msi' -o -name '*.exe' -o -name '*.nsis.zip' \) -exec cp {} "$OUT_DIR/" \;
+  fi
 }
 
 for target in $TARGETS; do

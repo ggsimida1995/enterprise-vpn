@@ -9,6 +9,12 @@ const loginButton = document.querySelector('#login-button')
 const username = document.querySelector('#username')
 const password = document.querySelector('#password')
 const message = document.querySelector('#message')
+const serverSettingsButtons = [...document.querySelectorAll('.server-settings-button')]
+const serverSettingsDialog = document.querySelector('#server-settings-dialog')
+const serverSettingsForm = document.querySelector('#server-settings-form')
+const serverUrl = document.querySelector('#server-url')
+const serverSettingsClose = document.querySelector('#server-settings-close')
+const serverSettingsCancel = document.querySelector('#server-settings-cancel')
 const connected = document.querySelector('#connected')
 const account = document.querySelector('#account')
 const network = document.querySelector('#network')
@@ -227,6 +233,21 @@ function setAccountMenu(open) {
   accountMenuButton.setAttribute('aria-expanded', String(open))
 }
 
+async function openServerSettings() {
+  try {
+    serverUrl.value = await invoke('get_service_url')
+    serverSettingsDialog.showModal()
+    serverUrl.focus()
+    serverUrl.select()
+  } catch (error) {
+    message.textContent = errorMessage(error)
+  }
+}
+
+function closeServerSettings() {
+  serverSettingsDialog.close()
+}
+
 async function setVpnEnabled(enabled) {
   vpnToggle.disabled = true
   try {
@@ -251,6 +272,24 @@ async function setWindowMode(connectedMode) {
 listen('login-status', (event) => updateLoading(event.payload))
 tabButtons.forEach((button) => button.addEventListener('click', () => activateTab(button.dataset.tab)))
 refreshLogs.addEventListener('click', refreshLogsView)
+serverSettingsButtons.forEach((button) => button.addEventListener('click', openServerSettings))
+serverSettingsClose.addEventListener('click', closeServerSettings)
+serverSettingsCancel.addEventListener('click', closeServerSettings)
+serverSettingsForm.addEventListener('submit', async (event) => {
+  event.preventDefault()
+  const value = serverUrl.value.trim()
+  if (!value) return
+  serverSettingsForm.querySelector('button[type="submit"]').disabled = true
+  try {
+    serverUrl.value = await invoke('set_service_url', { serverUrl: value })
+    closeServerSettings()
+    message.textContent = '服务地址已保存，下次登录生效'
+  } catch (error) {
+    message.textContent = errorMessage(error)
+  } finally {
+    serverSettingsForm.querySelector('button[type="submit"]').disabled = false
+  }
+})
 vpnToggle.addEventListener('click', () => setVpnEnabled(!vpnEnabled))
 accountMenuButton.addEventListener('click', () => setAccountMenu(accountMenu.hidden))
 document.addEventListener('click', (event) => {

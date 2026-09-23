@@ -12,13 +12,18 @@
 
       <div class="app-content">
         <header id="brand" class="brand">
-          <div class="brand-mark" aria-hidden="true">
-            <span></span><span></span><span></span>
+          <div class="brand-identity">
+            <div class="brand-mark" aria-hidden="true">
+              <span></span><span></span><span></span>
+            </div>
+            <div>
+              <h1>企业内网</h1>
+              <p>安全连接，随时协作</p>
+            </div>
           </div>
-          <div>
-            <h1>企业内网</h1>
-            <p>安全连接，随时协作</p>
-          </div>
+          <button class="server-settings-button icon-button" type="button" title="服务设置" aria-label="服务设置" aria-controls="server-settings-dialog">
+            <span aria-hidden="true">⚙</span>
+          </button>
         </header>
 
         <section id="login-view" class="login-view" aria-labelledby="login-title">
@@ -39,6 +44,26 @@
           </form>
         </section>
 
+        <dialog id="server-settings-dialog" class="settings-dialog">
+          <form id="server-settings-form">
+            <div class="dialog-heading">
+              <div>
+                <h3>服务设置</h3>
+                <p>配置调试用服务地址，保存后下次登录生效</p>
+              </div>
+              <button id="server-settings-close" class="dialog-close" type="button" title="关闭" aria-label="关闭">×</button>
+            </div>
+            <label class="dialog-field">
+              <span>服务地址</span>
+              <input id="server-url" type="url" inputmode="url" autocomplete="off" placeholder="http://127.0.0.1:4096" required />
+            </label>
+            <div class="dialog-actions">
+              <button id="server-settings-cancel" class="secondary-button" type="button">取消</button>
+              <button class="primary-button" type="submit">保存</button>
+            </div>
+          </form>
+        </dialog>
+
         <section id="connected" class="connected-view" hidden aria-labelledby="connected-title">
           <div class="connected-header">
             <div>
@@ -46,6 +71,9 @@
               <h2 id="connected-title">企业内网</h2>
             </div>
             <div class="header-actions">
+              <button class="server-settings-button icon-button" type="button" title="服务设置" aria-label="服务设置" aria-controls="server-settings-dialog">
+                <span aria-hidden="true">⚙</span>
+              </button>
               <button id="vpn-toggle" class="vpn-toggle vpn-toggle-on" type="button" title="关闭 EasyTier VPN" aria-label="关闭 EasyTier VPN" aria-pressed="true">
                 <span id="vpn-toggle-icon" class="vpn-toggle-icon" aria-hidden="true">■</span>
               </button>
