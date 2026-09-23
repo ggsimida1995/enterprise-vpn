@@ -38,14 +38,6 @@ jobs:
       - name: Install Rust target
         shell: bash
         run: rustup target add "${{ matrix.rust_target }}"
-      - name: Enable VBScript for WiX MSI bundling
-        if: matrix.bundles == 'msi'
-        shell: pwsh
-        run: |
-          dism.exe /Online /Enable-Feature /FeatureName:VBSCRIPT /All /NoRestart
-          if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 3010) {
-            exit $LASTEXITCODE
-          }
       - name: Set release version
         if: startsWith(github.ref, 'refs/tags/v')
         shell: bash
