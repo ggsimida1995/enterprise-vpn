@@ -4,6 +4,7 @@ set -eu
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 OUT_DIR=${OUT_DIR:-"$ROOT_DIR/dist"}
 CORE_DIR=${EASYTIER_CORE_DIR:-"$ROOT_DIR/cores"}
+RESOURCE_DIR="$ROOT_DIR/src-tauri/resources"
 TARGETS=${TARGETS:-native}
 BUNDLES=${BUNDLES:-}
 ARTIFACT_SUFFIX=${ARTIFACT_SUFFIX:-}
@@ -38,27 +39,37 @@ copy_core() {
     exit 1
   }
   if [ "$windows" = yes ]; then
-    cp "$source" "$ROOT_DIR/src-tauri/binaries/easytier-core.exe"
-    cp "$cli_source" "$ROOT_DIR/src-tauri/binaries/easytier-cli.exe"
-    rm -f "$ROOT_DIR/src-tauri/binaries/easytier-core" "$ROOT_DIR/src-tauri/binaries/easytier-cli"
     case "$target" in
       native)
         case "$(uname -m)" in
-          x86_64) runtime_suffix=windows-amd64 ;;
-          aarch64|arm64) runtime_suffix=windows-arm64 ;;
+          x86_64) runtime_suffix=windows-amd64; rust_target=x86_64-pc-windows-msvc ;;
+          aarch64|arm64) runtime_suffix=windows-arm64; rust_target=aarch64-pc-windows-msvc ;;
           *) echo "unsupported native Windows architecture: $(uname -m)" >&2; exit 1 ;;
         esac
         ;;
-      windows/amd64) runtime_suffix=windows-amd64 ;;
-      windows/arm64) runtime_suffix=windows-arm64 ;;
+      windows/amd64) runtime_suffix=windows-amd64; rust_target=x86_64-pc-windows-msvc ;;
+      windows/arm64) runtime_suffix=windows-arm64; rust_target=aarch64-pc-windows-msvc ;;
     esac
-    cp "$CORE_DIR/Packet-${runtime_suffix}.dll" "$ROOT_DIR/src-tauri/binaries/Packet.dll"
-    cp "$CORE_DIR/wintun-${runtime_suffix}.dll" "$ROOT_DIR/src-tauri/binaries/wintun.dll"
-    cp "$CORE_DIR/WinDivert64-${runtime_suffix}.sys" "$ROOT_DIR/src-tauri/binaries/WinDivert64.sys"
+    mkdir -p "$RESOURCE_DIR/binaries"
+    find "$RESOURCE_DIR/binaries" -type f ! -name .gitkeep -delete 2>/dev/null || true
+    rm -f "$RESOURCE_DIR/binaries/.gitkeep"
+    for file in \
+      "$CORE_DIR/Packet-${runtime_suffix}.dll" \
+      "$CORE_DIR/wintun-${runtime_suffix}.dll" \
+      "$CORE_DIR/WinDivert64-${runtime_suffix}.sys"
+    do
+      [ -f "$file" ] || { echo "missing EasyTier runtime dependency: $file" >&2; exit 1; }
+    done
+    cp "$source" "$ROOT_DIR/src-tauri/binaries/easytier-core-${rust_target}.exe"
+    cp "$cli_source" "$ROOT_DIR/src-tauri/binaries/easytier-cli-${rust_target}.exe"
+    cp "$CORE_DIR/Packet-${runtime_suffix}.dll" "$RESOURCE_DIR/binaries/Packet.dll"
+    cp "$CORE_DIR/wintun-${runtime_suffix}.dll" "$RESOURCE_DIR/binaries/wintun.dll"
+    cp "$CORE_DIR/WinDivert64-${runtime_suffix}.sys" "$RESOURCE_DIR/binaries/WinDivert64.sys"
   else
-    rm -f "$ROOT_DIR/src-tauri/binaries/easytier-core.exe" "$ROOT_DIR/src-tauri/binaries/easytier-cli.exe"
-    cp "$source" "$ROOT_DIR/src-tauri/binaries/easytier-core"
-    cp "$cli_source" "$ROOT_DIR/src-tauri/binaries/easytier-cli"
+    mkdir -p "$RESOURCE_DIR/binaries"
+    find "$RESOURCE_DIR/binaries" -type f ! -name .gitkeep -delete 2>/dev/null || true
+    cp "$source" "$RESOURCE_DIR/binaries/easytier-core"
+    cp "$cli_source" "$RESOURCE_DIR/binaries/easytier-cli"
   fi
   chmod +x "$ROOT_DIR/src-tauri/binaries"/easytier-core* "$ROOT_DIR/src-tauri/binaries"/easytier-cli* 2>/dev/null || true
 }
@@ -74,9 +85,17 @@ build_one() {
     windows/arm64) cargo_args="--target aarch64-pc-windows-msvc"; bundle_dir="$ROOT_DIR/src-tauri/target/aarch64-pc-windows-msvc/release/bundle" ;;
   esac
   if [ -n "$BUNDLES" ]; then
-    (cd "$ROOT_DIR/src-tauri" && cargo tauri build $cargo_args --bundles "$BUNDLES")
+    if [ "$windows" = yes ]; then
+      (cd "$ROOT_DIR/src-tauri" && TAURI_CONFIG='{"bundle":{"externalBin":["binaries/easytier-core","binaries/easytier-cli"],"resources":{"resources/binaries/**/*":""}}}' cargo tauri build $cargo_args --bundles "$BUNDLES")
+    else
+      (cd "$ROOT_DIR/src-tauri" && cargo tauri build $cargo_args --bundles "$BUNDLES")
+    fi
   else
-    (cd "$ROOT_DIR/src-tauri" && cargo tauri build $cargo_args)
+    if [ "$windows" = yes ]; then
+      (cd "$ROOT_DIR/src-tauri" && TAURI_CONFIG='{"bundle":{"externalBin":["binaries/easytier-core","binaries/easytier-cli"],"resources":{"resources/binaries/**/*":""}}}' cargo tauri build $cargo_args)
+    else
+      (cd "$ROOT_DIR/src-tauri" && cargo tauri build $cargo_args)
+    fi
   fi
   if [ "$BUNDLES" = "msi" ]; then
     find "$bundle_dir" -type f -name '*.msi' -exec sh -c '
