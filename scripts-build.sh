@@ -5,6 +5,7 @@ ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 OUT_DIR=${OUT_DIR:-"$ROOT_DIR/dist"}
 CORE_DIR=${EASYTIER_CORE_DIR:-"$ROOT_DIR/cores"}
 TARGETS=${TARGETS:-native}
+BUNDLES=${BUNDLES:-}
 mkdir -p "$OUT_DIR" "$ROOT_DIR/src-tauri/binaries"
 
 copy_core() {
@@ -55,7 +56,11 @@ build_one() {
     darwin/amd64) cargo_args="--target x86_64-apple-darwin"; bundle_dir="$ROOT_DIR/src-tauri/target/x86_64-apple-darwin/release/bundle" ;;
     windows/amd64) cargo_args="--target x86_64-pc-windows-msvc"; bundle_dir="$ROOT_DIR/src-tauri/target/x86_64-pc-windows-msvc/release/bundle" ;;
   esac
-  (cd "$ROOT_DIR/src-tauri" && cargo tauri build $cargo_args)
+  if [ -n "$BUNDLES" ]; then
+    (cd "$ROOT_DIR/src-tauri" && cargo tauri build $cargo_args --bundles "$BUNDLES")
+  else
+    (cd "$ROOT_DIR/src-tauri" && cargo tauri build $cargo_args)
+  fi
   find "$bundle_dir" -type f \( -name '*.dmg' -o -name '*.app.tar.gz' -o -name '*.msi' -o -name '*.exe' -o -name '*.nsis.zip' \) -exec cp {} "$OUT_DIR/" \;
 }
 
