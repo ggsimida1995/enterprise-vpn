@@ -40,7 +40,23 @@ copy_core() {
   if [ "$windows" = yes ]; then
     cp "$source" "$ROOT_DIR/src-tauri/binaries/easytier-core.exe"
     cp "$cli_source" "$ROOT_DIR/src-tauri/binaries/easytier-cli.exe"
+    rm -f "$ROOT_DIR/src-tauri/binaries/easytier-core" "$ROOT_DIR/src-tauri/binaries/easytier-cli"
+    case "$target" in
+      native)
+        case "$(uname -m)" in
+          x86_64) runtime_suffix=windows-amd64 ;;
+          aarch64|arm64) runtime_suffix=windows-arm64 ;;
+          *) echo "unsupported native Windows architecture: $(uname -m)" >&2; exit 1 ;;
+        esac
+        ;;
+      windows/amd64) runtime_suffix=windows-amd64 ;;
+      windows/arm64) runtime_suffix=windows-arm64 ;;
+    esac
+    cp "$CORE_DIR/Packet-${runtime_suffix}.dll" "$ROOT_DIR/src-tauri/binaries/Packet.dll"
+    cp "$CORE_DIR/wintun-${runtime_suffix}.dll" "$ROOT_DIR/src-tauri/binaries/wintun.dll"
+    cp "$CORE_DIR/WinDivert64-${runtime_suffix}.sys" "$ROOT_DIR/src-tauri/binaries/WinDivert64.sys"
   else
+    rm -f "$ROOT_DIR/src-tauri/binaries/easytier-core.exe" "$ROOT_DIR/src-tauri/binaries/easytier-cli.exe"
     cp "$source" "$ROOT_DIR/src-tauri/binaries/easytier-core"
     cp "$cli_source" "$ROOT_DIR/src-tauri/binaries/easytier-cli"
   fi
