@@ -68,8 +68,19 @@ copy_core() {
   else
     mkdir -p "$RESOURCE_DIR/binaries"
     find "$RESOURCE_DIR/binaries" -type f ! -name .gitkeep -delete 2>/dev/null || true
-    cp "$source" "$RESOURCE_DIR/binaries/easytier-core"
-    cp "$cli_source" "$RESOURCE_DIR/binaries/easytier-cli"
+    case "$target" in
+      native)
+        case "$(uname -m)" in
+          arm64|aarch64) rust_target=aarch64-apple-darwin ;;
+          x86_64) rust_target=x86_64-apple-darwin ;;
+          *) echo "unsupported native macOS architecture: $(uname -m)" >&2; exit 1 ;;
+        esac
+        ;;
+      darwin/arm64) rust_target=aarch64-apple-darwin ;;
+      *) echo "unsupported macOS target: $target" >&2; exit 1 ;;
+    esac
+    cp "$source" "$ROOT_DIR/src-tauri/binaries/easytier-core-${rust_target}"
+    cp "$cli_source" "$ROOT_DIR/src-tauri/binaries/easytier-cli-${rust_target}"
   fi
   chmod +x "$ROOT_DIR/src-tauri/binaries"/easytier-core* "$ROOT_DIR/src-tauri/binaries"/easytier-cli* 2>/dev/null || true
 }
@@ -86,13 +97,13 @@ build_one() {
   esac
   if [ -n "$BUNDLES" ]; then
     if [ "$windows" = yes ]; then
-      (cd "$ROOT_DIR/src-tauri" && TAURI_CONFIG='{"bundle":{"externalBin":["binaries/easytier-core","binaries/easytier-cli"],"resources":{"resources/binaries/**/*":""}}}' cargo tauri build $cargo_args --bundles "$BUNDLES")
+      (cd "$ROOT_DIR/src-tauri" && cargo tauri build $cargo_args --bundles "$BUNDLES")
     else
       (cd "$ROOT_DIR/src-tauri" && cargo tauri build $cargo_args --bundles "$BUNDLES")
     fi
   else
     if [ "$windows" = yes ]; then
-      (cd "$ROOT_DIR/src-tauri" && TAURI_CONFIG='{"bundle":{"externalBin":["binaries/easytier-core","binaries/easytier-cli"],"resources":{"resources/binaries/**/*":""}}}' cargo tauri build $cargo_args)
+      (cd "$ROOT_DIR/src-tauri" && cargo tauri build $cargo_args)
     else
       (cd "$ROOT_DIR/src-tauri" && cargo tauri build $cargo_args)
     fi
