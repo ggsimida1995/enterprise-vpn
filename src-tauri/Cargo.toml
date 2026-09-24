@@ -1,6 +1,6 @@
 [package]
 name = "enterprise-vpn-client"
-version = "0.2.5"
+version = "0.2.6"
 description = "企业内网桌面客户端"
 authors = ["Enterprise VPN"]
 edition = "2024"
