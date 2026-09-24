@@ -146,11 +146,19 @@
           </section>
 
           <section class="tab-panel" data-panel="logs">
-            <div class="panel-heading"><h3>运行日志</h3><button id="refresh-logs" class="text-button" type="button">刷新</button></div>
-            <h4>客户端日志</h4>
-            <pre id="client-logs" class="log-panel">正在读取日志…</pre>
-            <h4>EasyTier 核心日志</h4>
-            <pre id="easytier-logs" class="log-panel">正在读取日志…</pre>
+            <div class="panel-heading">
+              <h3>运行日志</h3>
+              <div class="panel-actions">
+                <button id="refresh-logs" class="text-button" type="button">刷新</button>
+                <button id="clear-log" class="text-button danger-text-button" type="button">清空</button>
+              </div>
+            </div>
+            <div class="log-tabs" role="tablist" aria-label="日志类型">
+              <button class="log-tab-button active" type="button" role="tab" aria-selected="true" aria-controls="client-log-panel" data-log-tab="client">客户端日志</button>
+              <button class="log-tab-button" type="button" role="tab" aria-selected="false" aria-controls="easytier-log-panel" data-log-tab="easytier">EasyTier 核心日志</button>
+            </div>
+            <pre id="client-log-panel" class="log-panel" role="tabpanel" data-log-panel="client">正在读取日志…</pre>
+            <pre id="easytier-log-panel" class="log-panel" role="tabpanel" data-log-panel="easytier" hidden>正在读取日志…</pre>
           </section>
 
         </section>

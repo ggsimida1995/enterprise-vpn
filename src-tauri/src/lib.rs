@@ -398,6 +398,19 @@ fn get_client_logs() -> Result<ClientLogs, String> {
 }
 
 #[tauri::command]
+fn clear_log(kind: String) -> Result<(), String> {
+    let file_name = match kind.as_str() {
+        "client" => "client.log",
+        "easytier" => "easytier-core.log",
+        _ => return Err("不支持的日志类型".to_owned()),
+    };
+    let path = state_path()
+        .map_err(|error| error.to_string())?
+        .with_file_name(file_name);
+    fs::write(path, b"").map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 async fn get_easytier_status(
     app: tauri::AppHandle,
     state: tauri::State<'_, Arc<Mutex<SessionState>>>,
@@ -564,7 +577,8 @@ pub fn run() {
             close_client,
             set_window_mode,
             get_client_config,
-            get_client_logs
+            get_client_logs,
+            clear_log
         ])
         .run(tauri::generate_context!())
         .expect("error while running enterprise-vpn-client");

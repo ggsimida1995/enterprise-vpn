@@ -38,9 +38,12 @@ const configState = document.querySelector('#config-state')
 const configNetwork = document.querySelector('#config-network')
 const configRevision = document.querySelector('#config-revision')
 const configContent = document.querySelector('#config-content')
-const clientLogs = document.querySelector('#client-logs')
-const easytierLogs = document.querySelector('#easytier-logs')
+const clientLogs = document.querySelector('#client-log-panel')
+const easytierLogs = document.querySelector('#easytier-log-panel')
 const refreshLogs = document.querySelector('#refresh-logs')
+const clearLog = document.querySelector('#clear-log')
+const logTabButtons = [...document.querySelectorAll('.log-tab-button')]
+const logPanels = [...document.querySelectorAll('[data-log-panel]')]
 const tabButtons = [...document.querySelectorAll('.tab-button')]
 const tabPanels = [...document.querySelectorAll('.tab-panel')]
 const loading = document.querySelector('#loading')
@@ -213,11 +216,42 @@ async function refreshLogsView() {
     const data = await invoke('get_client_logs')
     clientLogs.textContent = data.client || '暂无客户端日志'
     easytierLogs.textContent = data.easytier || '暂无 EasyTier 核心日志'
-    clientLogs.scrollTop = clientLogs.scrollHeight
-    easytierLogs.scrollTop = easytierLogs.scrollHeight
+    scrollActiveLogToBottom()
   } catch (error) {
     clientLogs.textContent = errorMessage(error)
     easytierLogs.textContent = errorMessage(error)
+  }
+}
+
+function activateLogTab(name) {
+  logTabButtons.forEach((button) => {
+    const active = button.dataset.logTab === name
+    button.classList.toggle('active', active)
+    button.setAttribute('aria-selected', String(active))
+  })
+  logPanels.forEach((panel) => {
+    panel.hidden = panel.dataset.logPanel !== name
+  })
+  scrollActiveLogToBottom()
+}
+
+function scrollActiveLogToBottom() {
+  const panel = logPanels.find((item) => !item.hidden)
+  if (panel) panel.scrollTop = panel.scrollHeight
+}
+
+async function clearActiveLog() {
+  const activeTab = logTabButtons.find((button) => button.classList.contains('active'))
+  const kind = activeTab?.dataset.logTab || 'client'
+  clearLog.disabled = true
+  try {
+    await invoke('clear_log', { kind })
+    await refreshLogsView()
+    message.textContent = `${kind === 'client' ? '客户端' : 'EasyTier 核心'}日志已清空`
+  } catch (error) {
+    message.textContent = errorMessage(error)
+  } finally {
+    clearLog.disabled = false
   }
 }
 
@@ -271,7 +305,9 @@ async function setWindowMode(connectedMode) {
 
 listen('login-status', (event) => updateLoading(event.payload))
 tabButtons.forEach((button) => button.addEventListener('click', () => activateTab(button.dataset.tab)))
+logTabButtons.forEach((button) => button.addEventListener('click', () => activateLogTab(button.dataset.logTab)))
 refreshLogs.addEventListener('click', refreshLogsView)
+clearLog.addEventListener('click', clearActiveLog)
 serverSettingsButtons.forEach((button) => button.addEventListener('click', openServerSettings))
 serverSettingsClose.addEventListener('click', closeServerSettings)
 serverSettingsCancel.addEventListener('click', closeServerSettings)

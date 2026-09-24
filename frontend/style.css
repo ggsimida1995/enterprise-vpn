@@ -34,7 +34,7 @@ button:disabled { cursor: wait; opacity: .65; }
 .icon-button:hover { border-color: #1769aa; background: #fff; color: #1769aa; transform: translateY(-1px); }
 
 .login-view { width: 100%; max-width: 440px; margin: 38px auto 0; }
-.connected-view { width: 100%; max-width: 440px; margin: 14px auto 0; }
+.connected-view { display: flex; flex: 1; flex-direction: column; width: 100%; max-width: 440px; min-height: 0; margin: 14px auto 0; }
 .section-kicker { margin-bottom: 11px; color: #6694bd; font-size: 10px; font-weight: 700; letter-spacing: .2em; }
 .success-kicker { color: #16834b; }
 h2 { margin: 0; color: #17212b; font-size: 28px; line-height: 1.2; letter-spacing: 0; }
@@ -75,6 +75,7 @@ h2 { margin: 0; color: #17212b; font-size: 28px; line-height: 1.2; letter-spacin
 .tab-button.active::after { background: #1769aa; }
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
+.tab-panel.active[data-panel="logs"] { display: flex; flex: 1; flex-direction: column; min-height: 0; }
 .connection-chain { margin-top: 17px; padding: 15px; border: 1px solid #dce5ed; border-radius: 12px; background: rgba(255, 255, 255, .62); }
 .chain-heading, .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .chain-heading h3, .panel-heading h3 { margin: 0; color: #263849; font-size: 15px; }
@@ -137,9 +138,16 @@ h2 { margin: 0; color: #17212b; font-size: 28px; line-height: 1.2; letter-spacin
 .config-meta strong { color: #263849; font-size: 13px; }
 .code-panel, .log-panel { overflow: auto; margin: 13px 0 0; padding: 14px; border: 1px solid #dce5ed; border-radius: 10px; background: #f8fafc; color: #526679; font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
 .code-panel { max-height: 310px; }
-.log-panel { max-height: 160px; }
-.tab-panel h4 { margin: 17px 0 0; color: #526679; font-size: 11px; font-weight: 650; }
+.log-tabs { display: flex; flex: 0 0 auto; gap: 16px; margin-top: 16px; border-bottom: 1px solid #dce5ed; }
+.log-tab-button { position: relative; padding: 0 0 9px; border: 0; background: transparent; color: #8190a0; font-size: 11px; }
+.log-tab-button::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; background: transparent; content: ""; }
+.log-tab-button:hover, .log-tab-button.active { color: #1769aa; }
+.log-tab-button.active::after { background: #1769aa; }
+.log-panel { flex: 1; min-height: 0; max-height: none; border-color: #202b36; border-radius: 6px; background: #10161d; color: #c8d2dc; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .025), 0 10px 24px rgba(23, 33, 43, .15); white-space: pre; overflow-wrap: normal; }
+.panel-actions { display: flex; align-items: center; gap: 12px; }
 .text-button { padding: 0; border: 0; background: transparent; color: #1769aa; font-size: 11px; }
+.danger-text-button { color: #b42318; }
+.danger-text-button:hover { color: #dc2626; }
 .secondary-button { padding: 9px 16px; border: 1px solid #c6d2de; border-radius: 7px; background: transparent; color: #526679; font-size: 12px; }
 .secondary-button:hover { border-color: #1769aa; color: #1769aa; }
 .primary-button { padding: 9px 16px; border: 1px solid #1769aa; border-radius: 7px; background: #1769aa; color: #fff; font-size: 12px; font-weight: 650; }
