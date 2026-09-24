@@ -1061,14 +1061,31 @@ async fn query_easytier_status(app: &tauri::AppHandle, rpc_port: u16) -> Result<
         .iter()
         .find(|peer| peer.cost.eq_ignore_ascii_case("local"))
         .context("EasyTier 尚未返回本机节点")?;
-    let version = local.version.clone();
-    let virtual_ipv4 = local.cidr.clone();
-    let nat_type = local.nat_type.clone();
     let node_output = run_easytier_cli(&cli_path, rpc_port, &["node", "info"]);
-    let port_range = node_output
+    let node = node_output
         .ok()
         .and_then(|output| serde_json::from_slice::<Value>(&output).ok())
-        .map(|node| rpc_port_range(&node))
+        .map(|node| {
+            let virtual_ipv4 = json_string_field(&node, "ipv4_addr", "ipv4Addr");
+            let version = json_string_field(&node, "version", "version");
+            (node, virtual_ipv4, version)
+        });
+    // With DHCP enabled, the address is assigned asynchronously and is exposed
+    // by `node info`; the local row in `peer list` can still be empty.
+    let virtual_ipv4 = node
+        .as_ref()
+        .map(|(_, virtual_ipv4, _)| virtual_ipv4.clone())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| local.cidr.clone());
+    let version = node
+        .as_ref()
+        .map(|(_, _, version)| version.clone())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| local.version.clone());
+    let nat_type = local.nat_type.clone();
+    let port_range = node
+        .as_ref()
+        .map(|(node, _, _)| rpc_port_range(node))
         .unwrap_or_else(|| "未知".to_owned());
 
     let rx_bytes = records.iter().map(|peer| parse_size(&peer.rx_bytes)).sum();
@@ -1159,6 +1176,15 @@ fn rpc_port_range(node: &Value) -> String {
     }
 }
 
+fn json_string_field(value: &Value, snake_case: &str, camel_case: &str) -> String {
+    value
+        .get(snake_case)
+        .or_else(|| value.get(camel_case))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_owned()
+}
+
 fn parse_size(value: &str) -> u64 {
     let value = value.trim().to_ascii_lowercase();
     let number: String = value
@@ -1233,7 +1259,9 @@ fn bundled_binary_path(app: &tauri::AppHandle, name: &str) -> Result<PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use super::{CliPeerRecord, normalize_server_url, parse_size, rpc_port_range};
+    use super::{
+        CliPeerRecord, json_string_field, normalize_server_url, parse_size, rpc_port_range,
+    };
     use serde_json::json;
 
     #[test]
@@ -1264,6 +1292,19 @@ mod tests {
         }))
         .expect("peer record should deserialize");
         assert_eq!(peer.cidr, "10.10.10.3/24");
+    }
+
+    #[test]
+    fn node_info_reads_dhcp_assigned_ipv4_address() {
+        let node = json!({
+            "ipv4_addr": "10.10.10.8/24",
+            "version": "2.6.4"
+        });
+        assert_eq!(
+            json_string_field(&node, "ipv4_addr", "ipv4Addr"),
+            "10.10.10.8/24"
+        );
+        assert_eq!(json_string_field(&node, "version", "version"), "2.6.4");
     }
 
     #[test]
